@@ -286,7 +286,20 @@ function ManagementPanel({ sessionId, onClose }: { sessionId: string | undefined
                 assistants.map((a) => {
                   const isSel = a.id === selectedId
                   return (
-                    <div key={a.id} className={'dap-assist-item' + (isSel ? ' active' : '')}>
+                    <div
+                      key={a.id}
+                      className={'dap-assist-item' + (isSel ? ' active' : '')}
+                      role="button"
+                      tabIndex={0}
+                      title={isSel ? '已在当前会话选中' : '点击选择到当前会话'}
+                      onClick={() => { if (!isSel && !busy && sessionId !== undefined) void select(a.id, a.name) }}
+                      onKeyDown={(e) => {
+                        if ((e.key === 'Enter' || e.key === ' ') && !isSel && !busy && sessionId !== undefined) {
+                          e.preventDefault()
+                          void select(a.id, a.name)
+                        }
+                      }}
+                    >
                       <div className="dap-avatar">
                         {a.avatar ? <img src={a.avatar} alt="" /> : a.name.charAt(0).toUpperCase()}
                       </div>

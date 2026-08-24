@@ -35,6 +35,9 @@ export const STYLES = `
   position: fixed;
   inset: 0;
   z-index: 9999;
+  /* shell.overlay 渲染在 AppFrame 的 click-through 层（pointer-events:none）里，
+     必须显式恢复，否则面板所有点击都会穿透到下层应用 */
+  pointer-events: auto;
   display: flex;
   align-items: center;
   justify-content: center;
