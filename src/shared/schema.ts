@@ -1,5 +1,5 @@
 /**
- * @dsh-external/dsh-assistant-panel — host 侧运行时校验 schema（schemastery）。
+ * @bananiceee/dsh-zhushou — host 侧运行时校验 schema（schemastery）。
  *
  * ⚠️ 使用边界：
  *  - 本文件是 **host-only** 模块（import schemastery 运行时依赖，已在 peerDependencies）

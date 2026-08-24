@@ -1,5 +1,5 @@
 /**
- * @dsh-external/dsh-assistant-panel — host HTTP API 契约（client ⇄ host 唯一通道）。
+ * @bananiceee/dsh-zhushou — host HTTP API 契约（client ⇄ host 唯一通道）。
  *
  * 职责边界（见 docs/ARCHITECTURE.md「进程划分」）：
  *  - host：在 ctx.webServer.register 注册 `{prefix: API_BASE}`（prefix 路由），

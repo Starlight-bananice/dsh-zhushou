@@ -1,5 +1,5 @@
 /**
- * @dsh-external/dsh-assistant-panel — 共享纯类型（host + client 共用）。
+ * @bananiceee/dsh-zhushou — 共享纯类型（host + client 共用）。
  *
  * ⚠️ 本文件必须保持 **零运行时依赖**：
  *  - 全部内容为 type / interface / 字面量联合 / type-only 别名；

@@ -1,5 +1,5 @@
 /**
- * @dsh-external/dsh-assistant-panel — 侧边栏助手插件（host 侧）。
+ * @bananiceee/dsh-zhushou — 侧边栏助手插件（host 侧）。
  *
  * 入口职责：
  *  - 声明插件 name / inject（webServer、llm、settings 等）；
@@ -36,7 +36,7 @@ import { registerApiRoutes, type ApiDeps } from './api.ts'
 import { rebuildActivatedRequest, MEMORY_CANDIDATES } from './activate.ts'
 import type { RuntimeContext } from './prompt.ts'
 
-export const name = '@dsh-external/dsh-assistant-panel'
+export const name = '@bananiceee/dsh-zhushou'
 
 /** 实际用到的服务（webServer 路由、llm 调用、settings 读取、skills/workspace 枚举）。 */
 export const inject = ['webServer', 'llm', 'settings', 'skills', 'workspaceRegistry'] as const

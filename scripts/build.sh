@@ -1,9 +1,9 @@
 #!/bin/bash
-# Build @dsh-external/dsh-assistant-panel.
+# Build @bananiceee/dsh-zhushou.
 #   1. probe the dsh checkout (DSH_CHECKOUT env → 常见路径)
 #   2. junction-link host/client build deps from the checkout
 #   3. compile host src/ → lib/ with the checkout's tsc (tsconfig.json, client 排除)
-#   4. optional client typecheck: tsc -p tsconfig.client.json
+#   4. compile client declarations → lib/types/client (tsconfig.client.json)
 # The UI bundle itself is produced by tsdown (package.json build:client).
 set -euo pipefail
 
@@ -124,7 +124,7 @@ fi
 echo "=== Compiling host src → lib ==="
 "$TSC" -p tsconfig.json
 
-echo "=== Client typecheck (tsconfig.client.json) ==="
-"$TSC" -p tsconfig.client.json --noEmit
+echo "=== Compiling client declarations → lib/types/client ==="
+"$TSC" -p tsconfig.client.json
 
 echo "=== Build complete (client bundle: run tsdown / npm run build:client) ==="

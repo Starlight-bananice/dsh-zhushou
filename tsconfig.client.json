@@ -5,8 +5,11 @@
     "moduleResolution": "node",
     "ignoreDeprecations": "6.0",
     "jsx": "react-jsx",
+    "rootDir": "src",
     "outDir": ".client-build",
-    "declaration": false,
+    "declaration": true,
+    "declarationDir": "lib/types/client",
+    "declarationMap": true,
     "sourceMap": true,
     "strict": true,
     "skipLibCheck": true,
@@ -14,14 +17,15 @@
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
     "types": ["react", "react-dom"],
-    "typeRoots": [
-      "./node_modules/@types",
-      "/Users/a64485/deepseek-harness/packages/client/ui-primitives/node_modules/@types",
-      "/Users/a64485/deepseek-harness/node_modules/@types"
-    ],
+    "typeRoots": ["./node_modules/@types"],
     "noEmitOnError": true,
     "lib": ["es2022", "dom", "dom.iterable"]
   },
-  "include": ["src/client/**/*.ts", "src/client/**/*.tsx", "src/shared/**/*.ts"],
+  "include": [
+    "src/client/**/*.ts",
+    "src/client/**/*.tsx",
+    "src/shared/types.ts",
+    "src/shared/contracts.ts"
+  ],
   "exclude": ["lib", ".client-build", "node_modules"]
 }

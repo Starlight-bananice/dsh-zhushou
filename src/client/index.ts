@@ -1,5 +1,5 @@
 /**
- * @dsh-external/dsh-assistant-panel — client 入口。
+ * @bananiceee/dsh-zhushou — client 入口。
  * 注册三处 UI 面（纠偏形态，DESIGN-ACTIVATION §10.4 定案）：
  *   1. sidebar.footer.action — 侧边栏底栏「助手」文字选项（宽模式图标+文字）；显示当前会话选中态；点击打开管理面板；
  *   2. shell.overlay — 管理面板浮层（列表/选择/取消/编辑/复制/删除 + 当前会话选择状态条）；无独立聊天窗；
@@ -26,7 +26,7 @@ type ClientContext = {
 /** 安装样式表（dispose 时移除）。 */
 function installStyles(): () => void {
   const style = document.createElement('style')
-  style.setAttribute('data-dsh-plugin', '@dsh-external/dsh-assistant-panel')
+  style.setAttribute('data-dsh-plugin', '@bananiceee/dsh-zhushou')
   style.textContent = STYLES
   document.head.appendChild(style)
   return () => { style.remove() }
@@ -41,13 +41,13 @@ export const inject = ['slots']
  * register 必须带 name（= 槽名）与 id（list 槽条目 id）。
  */
 export function apply(ctx: ClientContext): void {
-  ctx.effect(installStyles, '@dsh-external/dsh-assistant-panel: styles')
+  ctx.effect(installStyles, '@bananiceee/dsh-zhushou: styles')
 
   // 1. 侧边栏底栏入口（sidebar.footer.action，list/root，owner { wide }）——「助手」文字选项
   ctx.slots.inject('sidebar.footer.action', () =>
     ctx.slots.register({
       name: 'sidebar.footer.action',
-      id: '@dsh-external/dsh-assistant-panel-sidebar',
+      id: '@bananiceee/dsh-zhushou-sidebar',
       order: 950,
       label: '助手',
     }, SidebarEntry),
@@ -57,7 +57,7 @@ export function apply(ctx: ClientContext): void {
   ctx.slots.inject('shell.overlay', () =>
     ctx.slots.register({
       name: 'shell.overlay',
-      id: '@dsh-external/dsh-assistant-panel-overlay',
+      id: '@bananiceee/dsh-zhushou-overlay',
       order: 50,
     }, AssistantOverlay),
   )
@@ -66,7 +66,7 @@ export function apply(ctx: ClientContext): void {
   ctx.slots.inject('settings.section', () =>
     ctx.slots.register({
       name: 'settings.section',
-      id: '@dsh-external/dsh-assistant-panel-settings',
+      id: '@bananiceee/dsh-zhushou-settings',
       order: 50,
       label: '助手面板',
     }, SettingsSection),

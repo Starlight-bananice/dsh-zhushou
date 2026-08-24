@@ -1,4 +1,4 @@
-# ARCHITECTURE.md — @dsh-external/dsh-assistant-panel 架构说明
+# ARCHITECTURE.md — @bananiceee/dsh-zhushou 架构说明
 
 > 架构师产出（design）。依据：docs/DESIGN.md（研究员调研）+ DSH checkout 源码核实。
 > 目标：给出 plugin 的进程划分、持久化布局、提示词组装管线、API 契约总览与关键决策。

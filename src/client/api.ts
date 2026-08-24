@@ -1,5 +1,5 @@
 /**
- * @dsh-external/dsh-assistant-panel — client API 层（host REST 唯一通道）。
+ * @bananiceee/dsh-zhushou — client API 层（host REST 唯一通道）。
  * 全部经 fetch(API_BASE + ...) 同源调用；信封解包 + 错误归一。
  * 聊天已退役（/chat、/chats 端点移除）：对话由 DSH 主会话承载，本层仅保留
  * 助手档案 / 会话级选择 / 记忆 / 枚举 / profile 的调用。

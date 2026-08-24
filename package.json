@@ -1,15 +1,49 @@
 {
-  "name": "@dsh-external/dsh-assistant-panel",
+  "name": "@bananiceee/dsh-zhushou",
   "version": "0.0.1",
-  "description": "DSH 侧边栏助手插件（参考 rikkahub）：助手名称/头像/标签/工作区/模型参数/系统提示词+系统变量/快捷回复/世界书/skill/记忆与时间提醒",
-  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Starlight-bananice/dsh-zhushou.git"
+  },
+  "homepage": "https://github.com/Starlight-bananice/dsh-zhushou#readme",
+  "bugs": {
+    "url": "https://github.com/Starlight-bananice/dsh-zhushou/issues"
+  },
+  "description": "DSH 侧边栏助手插件（dsh-zhushou）：在侧边栏管理/选择助手，选中后在 DSH 主会话内直接以助手人设/模型/参数对话；不选则保持原生会话。A DSH sidebar assistant plugin: manage and pick assistant personas in the sidebar, then chat with them inside the main DSH session; leave it unselected for the native experience.",
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "assistant",
+    "assistant-panel",
+    "persona",
+    "world-book",
+    "memory"
+  ],
   "type": "module",
   "main": "./lib/index.js",
   "types": "./lib/types/index.d.ts",
   "files": [
-    "lib"
+    "lib",
+    "src",
+    "cordis.patch.yml",
+    "scripts/build.sh",
+    "README.md",
+    "README.zh.md"
   ],
-  "license": "BSD-3-Clause",
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots"
+      ],
+      "platform": "web"
+    }
+  },
   "peerDependencies": {
     "@deepseek-ai/dsh-llm": ">=0.0.1-rc <2",
     "@deepseek-ai/dsh-tools": ">=0.0.1-rc <2",
@@ -25,7 +59,8 @@
   "scripts": {
     "build": "bash scripts/build.sh",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build:client": "tsdown"
+    "build:client": "tsdown",
+    "verify": "bash scripts/verify.sh"
   },
   "exports": {
     ".": {
@@ -33,18 +68,9 @@
       "default": "./lib/index.js"
     },
     "./client": {
-      "types": "./lib/types/client/index.d.ts",
+      "types": "./lib/types/client/client/index.d.ts",
       "default": "./lib/client.js"
     },
     "./package.json": "./package.json"
-  },
-  "dsh": {
-    "client": {
-      "inject": [
-        "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-ui-slots"
-      ],
-      "platform": "web"
-    }
   }
 }

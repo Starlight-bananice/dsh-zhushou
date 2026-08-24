@@ -1,0 +1,6 @@
+# dsh-zhushou bundle 层：把插件挂入 profile 补丁栈（dsh plugin add 安装入口）。
+# Runtime 默认值在插件配置边界内；用户可用相同 id 在自己的 profile patch 行覆盖。
+- insert:
+    - id: dsh-zhushou
+      name: '@bananiceee/dsh-zhushou'
+      config: {}

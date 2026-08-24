@@ -1,6 +1,6 @@
-# DESIGN.md — @dsh-external/dsh-assistant-panel 设计调研
+# DESIGN.md — @bananiceee/dsh-zhushou 设计调研
 
-> 研究员产出（research）。目标：为 DSH 插件 **@dsh-external/dsh-assistant-panel**（侧边栏助手，参考 RikkaHub 功能面）提供设计依据。
+> 研究员产出（research）。目标：为 DSH 插件 **@bananiceee/dsh-zhushou**（侧边栏助手，参考 RikkaHub 功能面）提供设计依据。
 > 调研方式：RikkaHub 官方文档实测抓取（docs.rikka-ai.com）+ DSH checkout 源码逐包核对（/Users/a64485/deepseek-harness，只读）。
 > 日期：2026-08-25。本文件是**调研与设计建议**，不是实现代码；架构师/工程师以此为依据细化。
 
