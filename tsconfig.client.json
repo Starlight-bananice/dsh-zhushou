@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "ignoreDeprecations": "6.0",
+    "jsx": "react-jsx",
+    "outDir": ".client-build",
+    "declaration": false,
+    "sourceMap": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "types": ["react", "react-dom"],
+    "typeRoots": [
+      "./node_modules/@types",
+      "/Users/a64485/deepseek-harness/packages/client/ui-primitives/node_modules/@types",
+      "/Users/a64485/deepseek-harness/node_modules/@types"
+    ],
+    "noEmitOnError": true,
+    "lib": ["es2022", "dom", "dom.iterable"]
+  },
+  "include": ["src/client/**/*.ts", "src/client/**/*.tsx", "src/shared/**/*.ts"],
+  "exclude": ["lib", ".client-build", "node_modules"]
+}
