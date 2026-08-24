@@ -473,8 +473,8 @@ export function MemoryForm({ host }: { host: FormHost }) {
           </Field>
         </div>
       </div>
-      <Field label="时间间隔提醒（分钟）" hint="距上一次交互超过该值在发送前插入提醒；留空 = 关闭">
-        <NumberInput value={mem.gapReminderMinutes} min={1} step={1} onChange={(v) => update((c) => ({ ...c, memory: { ...c.memory, gapReminderMinutes: v } }))} placeholder="关闭" />
+      <Field label="时间感知" hint="开 → 助手知道当前时间与距上次对话多久（自然上下文行，无提醒消息）；关 → 不注入">
+        <Toggle checked={mem.timeAwareness} onChange={(v) => update((c) => ({ ...c, memory: { ...c.memory, timeAwareness: v } }))} label={mem.timeAwareness ? '开' : '关'} />
       </Field>
       {mem.enabled && (
         <div style={{ marginTop: 6 }}>

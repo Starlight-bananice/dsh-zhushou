@@ -1,14 +1,15 @@
 /**
  * dsh-assistant-panel — host 存储层。
  *
- * 数据布局（docs/ARCHITECTURE.md §3）：
+ * 数据布局（docs/ARCHITECTURE.md §3 + ARCHITECTURE-ACTIVATION §5）：
  *   <dataDir>/
  *     settings.json        # 插件级设置（userName/locale/timezone/dataDir）
  *     assistants/<id>.json # 助手档案（原子写：tmp + rename）
- *     chats/<chatId>.jsonl # 会话消息日志（首行 = 会话头部，其余 = ChatMessage）
+ *     selection.json       # 会话级选择状态（SelectionStore；见 src/selection.ts）
  *     global-memory.jsonl  # 全局记忆池
  *     memory/<assistantId>.jsonl  # 助手私有记忆池
  *
+ * 聊天历史退役：chats/ 目录不再创建/读取（由 DSH SessionStore 承载，插件不复制）。
  * 原子性：assistants/*.json 写临时文件后 rename；JSONL append-only（崩溃安全）；
  * 删除记忆条目时重写文件（去行）。
  */
@@ -16,7 +17,7 @@
 import { randomUUID } from 'node:crypto'
 import {
   mkdirSync, existsSync, readFileSync, writeFileSync,
-  renameSync, readdirSync, unlinkSync, statSync, appendFileSync,
+  renameSync, readdirSync, unlinkSync, appendFileSync,
 } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { homedir, userInfo } from 'node:os'
@@ -25,17 +26,11 @@ import type {
   AssistantId,
   AssistantMemoryEntry,
   AssistantSummary,
-  ChatId,
-  ChatMessage,
-  ChatSession,
   GlobalMemoryEntry,
   MemoryEntryId,
 } from './shared/types.ts'
-import type { CreateAssistantInput, PluginProfile, UpdateAssistantInput, ChatSummary } from './shared/contracts.ts'
+import type { CreateAssistantInput, PluginProfile, UpdateAssistantInput } from './shared/contracts.ts'
 import { parseAssistantConfig, parseCreateInput } from './shared/schema.ts'
-
-/** 单会话日志文件超过该字节数即轮转归档。 */
-export const CHAT_ROTATE_BYTES = 10 * 1024 * 1024
 
 /** 生成一个带前缀的随机 id。 */
 export function uid(prefix: string): string {
@@ -272,139 +267,6 @@ export class AssistantStore {
     if (!existsSync(file)) return false
     unlinkSync(file)
     return true
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 聊天会话（chats/*.jsonl）
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** 会话元信息行（JSONL 首行）。 */
-interface ChatHeader {
-  id: ChatId
-  assistantId: AssistantId
-  title: string
-  createdAt: number
-  updatedAt: number
-}
-
-export class ChatStore {
-  private readonly dir: string
-
-  constructor(baseDir: string) {
-    this.dir = join(baseDir, 'chats')
-  }
-
-  private file(chatId: ChatId): string {
-    return join(this.dir, `${chatId}.jsonl`)
-  }
-
-  /** 新建会话：写头部行。 */
-  createChat(assistantId: AssistantId, title = '新的会话'): ChatId {
-    const chatId = uid('chat') as ChatId
-    const now = Date.now()
-    const header: ChatHeader = { id: chatId, assistantId, title, createdAt: now, updatedAt: now }
-    appendJsonl(this.file(chatId), header)
-    return chatId
-  }
-
-  /** 向会话追加一条消息；更新头部 updatedAt（重写首行）。 */
-  appendMessage(chatId: ChatId, message: ChatMessage): boolean {
-    const file = this.file(chatId)
-    if (!existsSync(file)) return false
-    this.rotateIfNeeded(chatId)
-    appendJsonl(file, message)
-    this.touchHeader(chatId, message.ts)
-    return true
-  }
-
-  /** 取会话（头部 + 消息数组升序）。 */
-  get(chatId: ChatId): ChatSession | undefined {
-    const file = this.file(chatId)
-    if (!existsSync(file)) return undefined
-    const rows = readJsonl<ChatHeader | ChatMessage>(file)
-    if (rows.length === 0) return undefined
-    const header = rows[0] as ChatHeader
-    const messages = rows.slice(1) as ChatMessage[]
-    return {
-      id: header.id,
-      assistantId: header.assistantId,
-      title: header.title,
-      createdAt: header.createdAt,
-      updatedAt: header.updatedAt,
-      messages,
-    }
-  }
-
-  /** 会话列表（可按助手过滤），按 updatedAt 降序。 */
-  list(assistantId?: AssistantId): ChatSummary[] {
-    if (!existsSync(this.dir)) return []
-    const summaries: ChatSummary[] = []
-    for (const name of readdirSync(this.dir)) {
-      if (!name.endsWith('.jsonl')) continue
-      const chatId = name.slice(0, -'.jsonl'.length) as ChatId
-      const session = this.get(chatId)
-      if (!session) continue
-      if (assistantId && session.assistantId !== assistantId) continue
-      summaries.push({
-        id: session.id,
-        assistantId: session.assistantId,
-        title: session.title,
-        createdAt: session.createdAt,
-        updatedAt: session.updatedAt,
-        messageCount: session.messages.length,
-      })
-    }
-    summaries.sort((a, b) => b.updatedAt - a.updatedAt)
-    return summaries
-  }
-
-  delete(chatId: ChatId): boolean {
-    const file = this.file(chatId)
-    if (!existsSync(file)) return false
-    unlinkSync(file)
-    // 清理轮转归档
-    for (const suffix of ['.1', '.2', '.3']) {
-      const archived = `${file}${suffix}`
-      if (existsSync(archived)) unlinkSync(archived)
-    }
-    return true
-  }
-
-  /** 会话内最后一条 user 消息的时间戳；无则返回头部 createdAt。 */
-  lastUserMessageTs(chatId: ChatId): number | null {
-    const session = this.get(chatId)
-    if (!session) return null
-    if (session.messages.length === 0) return session.createdAt
-    for (let i = session.messages.length - 1; i >= 0; i--) {
-      if (session.messages[i].role === 'user') return session.messages[i].ts
-    }
-    return session.createdAt
-  }
-
-  private rotateIfNeeded(chatId: ChatId): void {
-    const file = this.file(chatId)
-    if (!existsSync(file)) return
-    try {
-      if (statSync(file).size >= CHAT_ROTATE_BYTES) {
-        const target = `${file}.1`
-        if (existsSync(`${file}.2`)) renameSync(`${file}.2`, `${file}.3`)
-        if (existsSync(`${file}.1`)) renameSync(`${file}.1`, `${file}.2`)
-        renameSync(file, target)
-      }
-    } catch {
-      // 轮转失败不阻塞
-    }
-  }
-
-  private touchHeader(chatId: ChatId, ts: number): void {
-    const file = this.file(chatId)
-    const rows = readJsonl<unknown>(file)
-    if (rows.length === 0) return
-    const header = rows[0] as ChatHeader
-    header.updatedAt = ts
-    rows[0] = header
-    rewriteJsonl(file, rows)
   }
 }
 

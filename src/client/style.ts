@@ -26,6 +26,9 @@ export const STYLES = `
   background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4176e6) 18%, transparent);
   color: var(--dsw-alias-brand-primary, #4176e6);
 }
+.dap-side-action-sel {
+  color: var(--dsw-alias-brand-primary, #4176e6);
+}
 
 /* ── overlay 面板容器（侧边栏入口点开） ───────── */
 .dap-overlay {
@@ -251,138 +254,116 @@ export const STYLES = `
   font-weight: 600;
 }
 
-/* ── 聊天窗 ─────────────────────────────────── */
-.dap-chat {
+/* ── 管理面板：选择状态条 ─────────────────────── */
+.dap-sel-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));
+  background: var(--dsw-alias-bg-layer-2, #f4f5f7);
+  flex: none;
+}
+.dap-sel-banner.active {
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4176e6) 7%, var(--dsw-alias-bg-layer-2, #f4f5f7));
+}
+.dap-sel-text {
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary, #5b6472);
+  min-width: 0;
+  flex: 1;
+}
+.dap-sel-text b {
+  color: var(--dsw-alias-label-primary, #1a1d24);
+  font-weight: 600;
+}
+.dap-sel-hint {
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary, #9aa0aa);
+  margin-left: 6px;
+}
+.dap-sel-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--dsw-alias-brand-primary, #4176e6);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4176e6) 13%, transparent);
+  border-radius: 8px;
+  padding: 0 6px;
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+.dap-avatar.small {
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+  flex: none;
+}
+.dap-btn.tiny {
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 6px;
+}
+.dap-panel-sub {
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary, #9aa0aa);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dap-manage-body {
+  min-height: 0;
+}
+.dap-manage-body .dap-assist-list {
+  width: 100%;
+  border-right: none;
+}
+
+/* ── 编辑器（管理面板内联编辑） ─────────────── */
+.dap-editor {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
-.dap-chat-scroll {
+.dap-editor-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  padding: 16px 20px;
 }
-.dap-msg {
+.dap-editor-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.1));
+  flex: none;
+}
+.dap-editor-actions {
   display: flex;
   gap: 8px;
-  max-width: 86%;
+  flex: none;
 }
-.dap-msg.user {
-  align-self: flex-end;
-  flex-direction: row-reverse;
-}
-.dap-msg.assistant {
-  align-self: flex-start;
-}
-.dap-msg.system {
-  align-self: center;
-  max-width: 96%;
-}
-.dap-msg-body {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.dap-msg.user .dap-msg-body {
-  align-items: flex-end;
-}
-.dap-bubble {
-  padding: 8px 12px;
-  border-radius: 12px;
-  font-size: 13px;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  word-break: break-word;
-  background: var(--dsw-alias-bg-layer-2, #f4f5f7);
-  border: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));
-  color: var(--dsw-alias-label-primary, #1a1d24);
-}
-.dap-msg.user .dap-bubble {
-  background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4176e6) 12%, transparent);
-  border-color: color-mix(in srgb, var(--dsw-alias-brand-primary, #4176e6) 22%, transparent);
-}
-.dap-msg-time {
-  font-size: 10px;
-  color: var(--dsw-alias-label-tertiary, #9aa0aa);
-}
-.dap-msg.system .dap-bubble {
-  background: color-mix(in srgb, #e8b339 10%, transparent);
-  border: 1px dashed color-mix(in srgb, #e8b339 45%, transparent);
-  color: #8a6d1a;
+
+/* ── 侧边栏入口（文字选项） ─────────────────── */
+.dap-side-label {
   font-size: 12px;
-  padding: 5px 12px;
+  color: inherit;
+  margin-left: 2px;
 }
-.dap-msg-error .dap-bubble {
-  background: color-mix(in srgb, #e5484d 9%, transparent);
-  border-color: color-mix(in srgb, #e5484d 32%, transparent);
-  color: #c0392b;
-}
-.dap-cursor::after {
-  content: "▍";
-  animation: dap-blink 1s steps(2, start) infinite;
-  color: var(--dsw-alias-brand-primary, #4176e6);
+.dap-side-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dsw-alias-brand-primary, #4176e6);
   margin-left: 1px;
-}
-@keyframes dap-blink {
-  to { visibility: hidden; }
-}
-
-/* ── 快捷回复条 ─────────────────────────────── */
-.dap-quickbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 8px 14px 0;
   flex: none;
 }
-.dap-quick {
-  font-size: 11px;
-  padding: 3px 10px;
-  border-radius: 12px;
-  border: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12));
-  background: transparent;
-  color: var(--dsw-alias-label-secondary, #5b6472);
-  cursor: pointer;
-  transition: all 0.12s ease;
-}
-.dap-quick:hover {
-  border-color: var(--dsw-alias-brand-primary, #4176e6);
-  color: var(--dsw-alias-brand-primary, #4176e6);
-}
 
-/* ── 输入区 ─────────────────────────────────── */
-.dap-composer {
-  display: flex;
-  gap: 8px;
-  align-items: flex-end;
-  padding: 10px 14px 14px;
-  border-top: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));
-  flex: none;
-}
-.dap-input {
-  flex: 1;
-  min-width: 0;
-  background: var(--dsw-alias-bg-layer-2, #f4f5f7);
-  color: var(--dsw-alias-label-primary, #1a1d24);
-  border: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12));
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-size: 13px;
-  line-height: 1.4;
-  resize: none;
-  max-height: 120px;
-  box-sizing: border-box;
-  font-family: inherit;
-}
-.dap-input:focus {
-  outline: none;
-  border-color: var(--dsw-alias-brand-primary, #4176e6);
-}
 .dap-btn {
   display: inline-flex;
   align-items: center;

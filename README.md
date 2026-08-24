@@ -3,7 +3,7 @@
 > 项目仓库（dsh-zhushou）：https://github.com/Starlight-bananice/dsh-zhushou
 > 项目管理（issues）：https://github.com/Starlight-bananice/dsh-zhushou/issues
 
-DSH 侧边栏助手插件（功能对标 RikkaHub）：助手档案、模型参数、系统提示词+系统变量、快捷回复、注入模式、世界书、skill 开关、记忆与时间间隔提醒。
+DSH 侧边栏助手插件（功能对标 RikkaHub）：侧边栏『助手』选项 → 管理/选择助手 → 选中后在 DSH **主会话**内以助手人设/模型/参数对话，不选保持原生。功能：助手档案、模型参数、系统提示词+系统变量、快捷回复、注入模式、世界书、skill 开关、记忆与时间感知。
 
 ---
 
@@ -41,8 +41,9 @@ dev_uninject_plugin {"match": "dsh-assistant-panel"}
 | 注入模式 | role(system/user/assistant) + position(before/after/replace) + trigger(always/keywords) |
 | 世界书 | 关键词命中 → 按 priority 降序 → token 预算（1024）截断 → 注入 |
 | Skill | 从 ctx.skills.list() 枚举并按助手启用/禁用 |
-| 记忆 | 全局/私有池开关、参考聊天记录、时间间隔提醒（默认 30 分钟） |
-| 侧边栏 UI | sidebar.footer.action 图标 + shell.overlay 浮层面板 + settings.section 设置页 |
+| 记忆 | 全局/私有池开关、参考聊天记录、时间感知开关（注入当前时间/上次对话时间/间隔为自然上下文） |
+| 会话级选择 | selection.json 按 DSH 会话记录选中助手；选中即在主会话注入（人设/模型参数/世界书/记忆），取消即恢复原生 |
+| 侧边栏 UI | sidebar.footer.action 文字选项（含选中态）+ shell.overlay 管理面板（选择/取消/编辑）+ settings.section 设置页 |
 
 ## HTTP API
 
@@ -53,15 +54,14 @@ dev_uninject_plugin {"match": "dsh-assistant-panel"}
 | GET /health | 健康检查（版本 / dataDir / uptime） |
 | GET /assistants · POST /assistants | 助手列表摘要 / 创建 |
 | GET /assistants/:id · PUT /assistants/:id · DELETE /assistants/:id | 读取 / 部分更新 / 删除（连带私有记忆与会话） |
-| POST /chat | SSE 聊天（text/event-stream；overrides.stream=false 走非流式聚合） |
-| GET /chats?assistantId= · GET /chats/:id/messages · DELETE /chats/:id | 会话列表 / 历史 / 删除 |
+| ~~POST /chat~~ | ~~SSE 聊天~~（已退役：主会话对话，激活见 docs/ARCHITECTURE-ACTIVATION.md） |
+| ~~GET /chats…~~ | ~~会话列表 / 历史 / 删除~~（已退役，历史由 DSH 会话承载） |
+| GET /selection?sessionId= · POST /selection | 会话级助手激活/取消（{sessionId, assistantId|null}；null=恢复原生） |
 | GET /memory?global=&assistantId= · POST /memory · PUT /memory/:id · DELETE /memory/:id | 记忆条目 CRUD |
 | GET /skills?cwd= | skill 枚举（ctx.skills.list） |
 | GET /models | 提供商/模型枚举（含 default 主模型标记、思考强度档位、上下文窗口） |
 | GET /workspaces | 工作区枚举（ctx.workspaceRegistry.list） |
 | GET /profile · PUT /profile | 插件身份/本地化（userName/locale/timezone/dataDir） |
-
-SSE 事件：connected → reasoning-delta* / text-delta* → done（或 error）；空闲 15s 心跳注释行。
 
 ## 数据布局
 
@@ -69,16 +69,20 @@ SSE 事件：connected → reasoning-delta* / text-delta* → done（或 error�
 
 ```
 settings.json            # 插件级设置（userName/locale/timezone/dataDir）
+selection.json           # 会话级选择状态（sessionId → {assistantId, lastChatTs}）
 assistants/<id>.json     # 助手档案（原子写：tmp + rename）
-chats/<chatId>.jsonl     # 会话日志（首行头部 + 逐行消息；>10MB 轮转归档）
 global-memory.jsonl      # 全局记忆池
 memory/<assistantId>.jsonl  # 助手私有记忆池
+# chats/ 已退役：聊天历史由 DSH 会话（~/.dsh/sessions）承载
 ```
 
 ## 已知限制
 
 1. **Top-P 暂不生效**：DSH GenerateOptions / LlmCallConfig 当前没有 topP 字段（DESIGN 调研核实）。本插件将其作为设置保留、参与校验与持久化，但不传给 ctx.llm.stream；官方支持后接线。
-2. **reasoningEffort 就近映射**：DSH 仅 off/low/high/max 四档；medium 由 host 映射为 low；auto 不传（服务端默认）。
-3. **记忆抽取未闭环**：记忆注入（关键词+时间衰减取 top 5）与 CRUD 已实现；「fast model 自动抽取事实 → 写入记忆池」的异步抽取仍未接线（契约位 SSE memory-saved 已留），当前记忆内容由用户在设置页手动维护。
-4. **skill 面板受 host 运行时影响**：ctx.skills.list() 返回当前运行时注册的技能（如 vision-skills），非编译期全量目录。
-5. **多模态未支持**：仅文本消息；图片等后续版本扩展。
+2. **会话模型 UI 显示不随激活变化**：选中助手后，人设/模型/参数覆盖仅作用于 llm/stream **请求层**（激活管线，见 docs/ARCHITECTURE-ACTIVATION.md）；会话头部与 DSH UI 显示的 provider/model 仍是原值。后续如需展示可走 request-inspection 投影（本期不做）。
+3. **官方 system 可被助手人设替换**：激活时 `rebuilt.system` 以助手组装段为主体（人设优先）；助手 system 为空时保留官方 system。
+4. **注入不进会话日志**：激活注入只作用于请求面，session/event 记录的仍是原始消息（一致性优先）。
+5. **reasoningEffort 就近映射**：DSH 仅 off/low/high/max 四档；medium 由 host 映射为 low；auto 不传（服务端默认）。
+6. **记忆抽取未闭环**：记忆注入（关键词+时间衰减取 top 5）与 CRUD 已实现；「fast model 自动抽取事实 → 写入记忆池」的异步抽取仍未接线（记忆条目由用户在设置页手动维护）。
+7. **skill 面板受 host 运行时影响**：ctx.skills.list() 返回当前运行时注册的技能（如 vision-skills），非编译期全量目录。
+8. **多模态未支持**：仅文本消息；图片等后续版本扩展。

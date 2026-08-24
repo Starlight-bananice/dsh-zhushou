@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AssistantConfig, AssistantId } from '../shared/types.ts'
 import type { ProviderInfo, SkillInfo, WorkspaceInfo } from '../shared/contracts.ts'
+import type { SettingsSectionProps } from './slots.ts'
 import { getAssistant, listAssistants, listModels, listSkills, listWorkspaces, updateAssistant } from './api.ts'
 import { apiErrorMessage } from './api.ts'
 import { injectAsAssistantId } from './helpers.ts'
@@ -17,7 +18,7 @@ async function loadEnums(): Promise<{ models: ProviderInfo[]; workspaces: Worksp
   return { models: m.providers, workspaces: w.workspaces, skills: s.skills }
 }
 
-export function SettingsSection() {
+export function SettingsSection(_props: SettingsSectionProps) {
   const [assistants, setAssistants] = useState<{ id: AssistantId; name: string }[]>([])
   const [selectedId, setSelectedId] = useState<AssistantId | ''>('')
   const [config, setConfig] = useState<AssistantConfig | null>(null)
@@ -105,7 +106,7 @@ export function SettingsSection() {
         <ErrorNote message={error} />
       ) : (
         <>
-          <p className="dap-set-intro">配置侧边栏助手：身份、模型参数、系统提示词、注入/世界书/skill 与记忆。</p>
+          <p className="dap-set-intro">配置助手档案：身份、模型参数、系统提示词、注入/世界书/skill、记忆（含时间感知开关——开启后助手知道当前时间与距上次对话多久，无提醒消息）。</p>
           <div style={{ maxWidth: 320, marginBottom: 8 }}>
             <Select
               value={selectedId}

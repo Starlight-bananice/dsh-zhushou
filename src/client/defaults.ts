@@ -51,7 +51,7 @@ export function defaultAssistantInput(name?: string): CreateAssistantBody {
       enabled: false,
       globalMemory: true,
       useChatHistory: true,
-      gapReminderMinutes: null,
+      timeAwareness: true,
     },
   }
 }
@@ -75,4 +75,6 @@ export const SYSTEM_VARIABLES: { name: string; description: string }[] = [
   { name: 'assistant_tags', description: '助手标签（逗号分隔）' },
   { name: 'workspace', description: '绑定工作区标题' },
   { name: 'chat_count', description: '本会话消息条数' },
+  { name: 'last_chat_time', description: '上次用户对话的本地时间（无则空）' },
+  { name: 'elapsed_since_last', description: '距上次对话的人类可读间隔（无则空）' },
 ]

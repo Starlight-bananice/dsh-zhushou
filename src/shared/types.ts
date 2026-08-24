@@ -18,7 +18,11 @@ export type Brand<T, Name extends string> = T & { readonly __brand?: Name }
 
 /** 助手档案 id。 */
 export type AssistantId = Brand<string, 'AssistantId'>
-/** 聊天会话 id。 */
+/**
+ * @deprecated chats 退役（纠偏改造）：本插件不再生成/维护独立会话 id——
+ * 聊天历史由 DSH SessionStore 承载（~/.dsh/sessions）。保留仅作历史参考，
+ * 删除聊天端点后随之下架。
+ */
 export type ChatId = Brand<string, 'ChatId'>
 /** 记忆条目 id。 */
 export type MemoryEntryId = Brand<string, 'MemoryEntryId'>
@@ -75,6 +79,8 @@ export type SystemVariableName =
   | 'assistant_tags'
   | 'workspace'
   | 'chat_count'
+  | 'last_chat_time'
+  | 'elapsed_since_last'
 
 /** 系统提示词配置。 */
 export interface SystemPromptConfig {
@@ -149,7 +155,7 @@ export interface SkillRef {
   enabled: boolean
 }
 
-/** 记忆配置（开关/全局池/参考聊天/时间间隔提醒）。 */
+/** 记忆配置（开关/全局池/参考聊天/时间感知）。 */
 export interface MemoryConfig {
   /** 记忆总开关。 */
   enabled: boolean
@@ -158,10 +164,32 @@ export interface MemoryConfig {
   /** 是否参考聊天记录（最近会话摘要/历史相关性，见 ARCHITECTURE「记忆」）。 */
   useChatHistory: boolean
   /**
-   * 时间间隔提醒阈值（分钟）：距上一次交互 ≥ 该值时，
-   * 在发送新消息前自动插入一条时间提醒；null = 关闭。默认 30。
+   * 时间感知开关（纠偏 design：原 gapReminderMinutes 时间间隔提醒已废弃移除）。
+   * 开 → 在 system 末尾追加一行**自然上下文**（当前时间 + 上次对话时间/间隔），
+   * 不生成刻意 `[时间提醒]` 消息、不使用命令式口吻；关 → 不注入。
+   * 时间源：host 侧 session/event 的 user/message（event.time）维护 lastChatTs。
+   * 变量：{{cur_datetime}} / {{last_chat_time}} / {{elapsed_since_last}}。默认 true。
    */
-  gapReminderMinutes: number | null
+  timeAwareness: boolean
+}
+
+/**
+ * 会话级选择状态（selection.json 中一条；主会话内助手激活的依据）。
+ *
+ * 语义：assistantId 非 null = 该 DSH 会话选中了助手 → host 在 llm/stream 主会话
+ * 请求（sessionId 精确匹配 + purpose 为 undefined）上注入人设/模型参数/世界书/
+ * 记忆/时间感知；assistantId null（或 selection.json 无条目）= 完全原生路径，零开销。
+ *
+ * 会话隔离：sessionId 是 DSH 主会话 id；subagent 用独立随机 id、compaction/session-title
+ * 带 purpose，均不命中本选择（见 docs/ARCHITECTURE-ACTIVATION.md §2/§4）。
+ */
+export interface SessionSelection {
+  /** DSH 主会话 id（字符串；与 DSH SessionId 一致，插件侧不再二次品牌化）。 */
+  sessionId: string
+  /** 选中的助手 id；null = 未激活（恢复原生对话）。 */
+  assistantId: AssistantId | null
+  /** 最近一次用户对话时间（epoch 毫秒；session/event user/message 的 event.time）；无 = null。 */
+  lastChatTs: number | null
 }
 
 /** 助手档案（身份信息）。 */
@@ -196,7 +224,11 @@ export interface AssistantConfig {
   memory: MemoryConfig
 }
 
-/** 聊天消息（单条）。 */
+/**
+ * @deprecated chats 退役（纠偏改造）：聊天记录由 DSH 会话本身承载，本插件不再
+ * 维护独立聊天历史。禁止新代码使用；host/client 工程师移除 ChatStore、
+ * /chat /chats 端点与聊天窗 UI 后删除本类型。
+ */
 export interface ChatMessage {
   id: Brand<string, 'MessageId'>
   role: MessageRole
@@ -208,7 +240,9 @@ export interface ChatMessage {
   tokens?: number
 }
 
-/** 聊天会话（消息序列 + 元信息）。 */
+/**
+ * @deprecated 同上（chats 退役）。禁止新代码使用；随聊天存储与端点移除后删除。
+ */
 export interface ChatSession {
   id: ChatId
   /** 所属助手。 */

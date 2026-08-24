@@ -3,8 +3,9 @@
  *
  * 注册在 ctx.webServer prefix 路由 /assistant-panel/api（见 src/shared/contracts.ts API_BASE）。
  * 统一信封 { ok: true, data } / { ok: false, error: { code, message, details? } }。
- * JSON 响应：content-type application/json + no-store + connection close（status-bar 先例）；
- * SSE：/api/chat 用 keep-alive（hmr 先例）。
+ * JSON 响应：content-type application/json + no-store + connection close（status-bar 先例）。
+ * 聊天端点（/chat、/chats）已退役（纠偏改造）：聊天由 DSH 主会话承载；
+ * host 只提供 /assistant-panel/api 下的 selection/assistants/memory/skills/models/workspaces/profile/health。
  * 错误码：BAD_REQUEST / NOT_FOUND / CONFLICT / UNSUPPORTED / LLM_ERROR / INTERNAL / ABORTED。
  */
 
@@ -15,36 +16,37 @@ import {
   API_BASE,
   type ApiErrorCode,
   type ApiEnvelope,
-  type ChatRequest,
   type CreateAssistantInput,
   type UpdateAssistantInput,
 } from './shared/contracts.ts'
 import {
-  type AssistantConfig,
   type AssistantId,
-  type ChatId,
-  type ChatMessage,
   type GlobalMemoryEntry,
   type MemoryEntryId,
   type AssistantMemoryEntry,
 } from './shared/types.ts'
-import { uid, detectUserName } from './store.ts'
+import { uid } from './store.ts'
 import type {
   AssistantStore,
-  ChatStore,
   MemoryStore,
   SettingsStore,
 } from './store.ts'
-import { handleChat, type ChatDeps } from './chat.ts'
+import type { SelectionStore } from './selection.ts'
+import { parseSelectionInput } from './shared/schema.ts'
 import type { RuntimeContext } from './prompt.ts'
 
 /** 路由处理器依赖集合。 */
-export interface ApiDeps extends ChatDeps {
+export interface ApiDeps {
   ctx: Context
+  llm: import('@deepseek-ai/dsh-llm').default
+  assistants: AssistantStore
+  selection: SelectionStore
+  memory: MemoryStore
   settings: SettingsStore
   dataDir: string
   pluginVersion: string
   startedAt: number
+  runtime: RuntimeContext
 }
 
 /** 统一 JSON 响应。 */
@@ -135,30 +137,9 @@ async function dispatch(req: IncomingMessage, res: ServerResponse, deps: ApiDeps
     return
   }
 
-  // ── 聊天 ──
-  if (seg[0] === 'chat') {
-    if (method === 'POST' && seg.length === 1) {
-      let body: ChatRequest
-      try {
-        body = await parseJsonBody<ChatRequest>(req)
-      } catch (e) {
-        fail(res, 400, 'BAD_REQUEST', String(e))
-        return
-      }
-      if (!body.assistantId || typeof body.message !== 'string' || !body.message.trim()) {
-        fail(res, 400, 'BAD_REQUEST', '缺少 assistantId 或 message')
-        return
-      }
-      await handleChat(req, res, body, deps)
-      return
-    }
-    fail(res, 404, 'NOT_FOUND', 'chat 路由不存在')
-    return
-  }
-
-  // ── 会话（chats）──
-  if (seg[0] === 'chats') {
-    await dispatchChats(method, seg, query, req, res, deps)
+  // ── 会话级选择（selection）──
+  if (seg[0] === 'selection') {
+    await dispatchSelection(method, seg, query, req, res, deps)
     return
   }
 
@@ -257,10 +238,8 @@ async function dispatchAssistants(
       deps.memory.list(false, id).forEach((entry) => {
         deps.memory.delete(entry.id, false, id)
       })
-      // 连带删除该助手全部会话（与 UI 提示「连带其私有记忆与会话」一致）
-      deps.chats.list(id).forEach((chat) => {
-        deps.chats.delete(chat.id)
-      })
+      // 连带清理所有会话级选择引用（选中该助手的会话恢复原生路径）
+      deps.selection.removeAssistant(id)
       ok(res, { id })
       return
     }
@@ -269,10 +248,10 @@ async function dispatchAssistants(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 会话（chats）
+// 会话级选择（selection）——主会话内助手激活/取消
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function dispatchChats(
+async function dispatchSelection(
   method: string,
   seg: string[],
   query: URLSearchParams,
@@ -280,29 +259,43 @@ async function dispatchChats(
   res: ServerResponse,
   deps: ApiDeps,
 ): Promise<void> {
-  // GET /chats?assistantId=
+  // GET /selection?sessionId=xxx → 当前会话选择（无条目 → assistantId null / lastChatTs null）
   if (method === 'GET' && seg.length === 1) {
-    const assistantId = (query.get('assistantId') ?? undefined) as AssistantId | undefined
-    ok(res, { chats: deps.chats.list(assistantId) })
+    const sessionId = query.get('sessionId') ?? ''
+    if (!sessionId) { fail(res, 400, 'BAD_REQUEST', '缺少 sessionId'); return }
+    const entry = deps.selection.get(sessionId)
+    ok(res, {
+      selection: entry
+        ? { sessionId, assistantId: entry.assistantId, lastChatTs: entry.lastChatTs }
+        : { sessionId, assistantId: null, lastChatTs: null },
+    })
     return
   }
-  // DELETE /chats/:chatId
-  if (method === 'DELETE' && seg.length === 2) {
-    const chatId = seg[1] as ChatId
-    const existed = deps.chats.delete(chatId)
-    if (!existed) { fail(res, 404, 'NOT_FOUND', '会话不存在'); return }
-    ok(res, { id: chatId })
+  // POST /selection { sessionId, assistantId|null } → 激活/取消
+  if (method === 'POST' && seg.length === 1) {
+    let body: unknown
+    try {
+      body = await parseJsonBody(req)
+    } catch (e) {
+      fail(res, 400, 'BAD_REQUEST', String(e))
+      return
+    }
+    let input: { sessionId: string; assistantId: AssistantId | null }
+    try {
+      input = parseSelectionInput(body)
+    } catch (e) {
+      fail(res, 400, 'BAD_REQUEST', '参数校验失败: ' + String(e))
+      return
+    }
+    if (input.assistantId !== null && !deps.assistants.get(input.assistantId)) {
+      fail(res, 404, 'NOT_FOUND', '助手不存在')
+      return
+    }
+    const selection = deps.selection.set(input.sessionId, input.assistantId)
+    ok(res, { selection })
     return
   }
-  // GET /chats/:chatId/messages
-  if (method === 'GET' && seg.length === 3 && seg[2] === 'messages') {
-    const chatId = seg[1] as ChatId
-    const session = deps.chats.get(chatId)
-    if (!session) { fail(res, 404, 'NOT_FOUND', '会话不存在'); return }
-    ok(res, { chat: session })
-    return
-  }
-  fail(res, 404, 'NOT_FOUND', 'chats 路由不存在')
+  fail(res, 404, 'NOT_FOUND', 'selection 路由不存在')
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

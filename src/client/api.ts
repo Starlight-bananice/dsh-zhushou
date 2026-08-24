@@ -1,18 +1,17 @@
 /**
- * @dsh-external/dsh-assistant-panel — client API 层（host REST + SSE 唯一通道）。
- * 全部经 fetch(API_BASE + ...) 同源调用；信封解包 + 错误归一；聊天走 POST + ReadableStream SSE。
+ * @dsh-external/dsh-assistant-panel — client API 层（host REST 唯一通道）。
+ * 全部经 fetch(API_BASE + ...) 同源调用；信封解包 + 错误归一。
+ * 聊天已退役（/chat、/chats 端点移除）：对话由 DSH 主会话承载，本层仅保留
+ * 助手档案 / 会话级选择 / 记忆 / 枚举 / profile 的调用。
  * 零外部依赖（只 import 共享契约的纯类型 + API_BASE 常量）。
  */
 import { API_BASE } from '../shared/contracts.ts'
 import type {
   AssistantSummary,
-  ChatEvent,
-  ChatRequest,
-  ChatSummary,
-  CreateAssistantInput,
   CreateMemoryRequest,
   HealthInfo,
   ProviderInfo,
+  SetSelectionRequest,
   SkillInfo,
   UpdateAssistantInput,
   UpdateMemoryRequest,
@@ -23,11 +22,9 @@ import type {
   AssistantId,
   AssistantMemoryEntry,
   AssistantProfile,
-  ChatId,
-  ChatMessage,
-  ChatSession,
   GlobalMemoryEntry,
   MemoryEntryId,
+  SessionSelection,
 } from '../shared/types.ts'
 
 /** 业务错误（信封 error 归一）。 */
@@ -101,101 +98,22 @@ export function deleteAssistant(id: AssistantId): Promise<{ id: AssistantId }> {
   return request('/assistants/' + encodeURIComponent(id), { method: 'DELETE' })
 }
 
-// ── 聊天 / 会话 ───────────────────────────────────────────────────────────────
+// ── 会话级选择（selection API）────────────────────────────────────────────────
+// 选中 = 该 DSH 主会话以助手人设/模型/参数对话；null = 取消（恢复原生）。
+// 契约：GET /selection?sessionId=、POST /selection（请求体 SetSelectionRequest）。
 
-export function listChats(assistantId: AssistantId): Promise<{ chats: ChatSummary[] }> {
-  return request('/chats?assistantId=' + encodeURIComponent(assistantId))
+/** GET /selection?sessionId=xxx → 当前会话选择状态（无条目 → assistantId null）。 */
+export function getSelection(sessionId: string): Promise<{ selection: SessionSelection }> {
+  return request('/selection?sessionId=' + encodeURIComponent(sessionId))
 }
 
-export function getChatMessages(chatId: ChatId): Promise<{ chat: ChatSession }> {
-  return request('/chats/' + encodeURIComponent(chatId) + '/messages')
-}
-
-export function deleteChat(chatId: ChatId): Promise<{ id: ChatId }> {
-  return request('/chats/' + encodeURIComponent(chatId), { method: 'DELETE' })
-}
-
-/** SSE 聊天事件回调。 */
-export interface ChatStreamHandlers {
-  onConnected?: (chatId: ChatId) => void
-  onDelta?: (delta: string) => void
-  onReasoning?: (delta: string) => void
-  onDone?: (message: ChatMessage) => void
-  onError?: (code: string, message: string) => void
-  onMemorySaved?: (entryId: MemoryEntryId) => void
-}
-
-/**
- * POST /chat SSE 消费：fetch + ReadableStream，按 \n\n 分帧解析
- * （首帧注释行 ':' 跳过；event:/data: 行提取）。EventSource 不支持 POST，故手动读流。
- */
-export async function streamChat(
-  req: ChatRequest,
-  handlers: ChatStreamHandlers,
-  signal?: AbortSignal,
-): Promise<void> {
-  let res: Response
-  try {
-    res = await fetch(API_BASE + '/chat', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(req),
-      signal,
-    })
-  } catch (e) {
-    if (signal?.aborted) throw new ApiError('ABORTED', '已停止')
-    throw new ApiError('INTERNAL', '聊天请求失败：' + (e instanceof Error ? e.message : String(e)))
-  }
-  if (!res.ok || !res.body) {
-    const txt = await res.text().catch(() => '')
-    throw new ApiError('INTERNAL', '聊天请求失败（HTTP ' + res.status + '）' + (txt ? '：' + txt.slice(0, 200) : ''))
-  }
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  const dispatch = (block: string) => {
-    let eventName = 'message'
-    const datas: string[] = []
-    for (const line of block.split('\n')) {
-      if (line.startsWith(':')) continue // SSE 注释（心跳）
-      if (line.startsWith('event:')) eventName = line.slice(6).trim()
-      else if (line.startsWith('data:')) datas.push(line.slice(5).trimStart())
-    }
-    if (!datas.length) return
-    let ev: ChatEvent
-    try {
-      ev = JSON.parse(datas.join('\n')) as ChatEvent
-    } catch {
-      return // 坏帧忽略
-    }
-    switch (ev.type) {
-      case 'connected': handlers.onConnected?.(ev.chatId); break
-      case 'text-delta': handlers.onDelta?.(ev.delta); break
-      case 'reasoning-delta': handlers.onReasoning?.(ev.delta); break
-      case 'tool-call-delta': break
-      case 'memory-saved': handlers.onMemorySaved?.(ev.entryId); break
-      case 'done': handlers.onDone?.(ev.message); break
-      case 'error': handlers.onError?.(ev.code, ev.message); break
-    }
-  }
-
-  // 行缓冲：按 \n\n 切帧（兼容 \r\n）
-  let carry = ''
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += carry + decoder.decode(value, { stream: true })
-    carry = ''
-    let idx = buffer.indexOf('\n\n')
-    while (idx >= 0) {
-      dispatch(buffer.slice(0, idx).replace(/\r/g, ''))
-      buffer = buffer.slice(idx + 2)
-      idx = buffer.indexOf('\n\n')
-    }
-  }
-  buffer = (carry + buffer).replace(/\r/g, '')
-  if (buffer.trim()) dispatch(buffer)
+/** POST /selection → 激活（assistantId 非 null）/ 取消（null）。返回落盘后的状态。 */
+export function setSelection(
+  sessionId: string,
+  assistantId: AssistantId | null,
+): Promise<{ selection: SessionSelection }> {
+  const body: SetSelectionRequest = { sessionId, assistantId }
+  return request('/selection', { method: 'POST', body: JSON.stringify(body) })
 }
 
 // ── 记忆 ─────────────────────────────────────────────────────────────────────

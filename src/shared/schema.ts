@@ -146,10 +146,22 @@ export const MemoryConfigSchema = z.object({
   /** 默认私有池（globalMemory=false，对齐 RikkaHub 默认）。 */
   globalMemory: z.boolean().default(false),
   useChatHistory: z.boolean().default(false),
-  /** null = 关闭时间提醒；默认 30 分钟。 */
-  gapReminderMinutes: z.union([z.natural().min(1), z.const(null)]).default(30),
+  /** 时间感知开关（默认开）：system 末尾注入一行自然时间上下文；关 = 不注入。 */
+  timeAwareness: z.boolean().default(true),
 })
 export type MemoryConfigOut = Infer<typeof MemoryConfigSchema>
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 会话级选择（selection API）
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** POST /api/selection 请求体（sessionId 必填；assistantId null = 取消激活）。 */
+export const SelectionInputSchema = z.object({
+  sessionId: z.string().required().description('DSH 主会话 id'),
+  /** null = 取消激活（恢复原生对话）。 */
+  assistantId: z.union([z.string().min(1), z.const(null)]).default(null),
+})
+export type SelectionInputOut = Infer<typeof SelectionInputSchema>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 助手档案 / 配置
@@ -262,4 +274,9 @@ export function parseChatMessage(data: unknown): ChatMessage {
 /** 校验全局记忆条目。 */
 export function parseGlobalMemoryEntry(data: unknown): GlobalMemoryEntry {
   return GlobalMemoryEntrySchema(data as any) as GlobalMemoryEntry
+}
+
+/** 校验选择写入输入（POST /selection）。 */
+export function parseSelectionInput(data: unknown): SelectionInputOut {
+  return SelectionInputSchema(data as any) as SelectionInputOut
 }

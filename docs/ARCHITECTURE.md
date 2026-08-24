@@ -3,6 +3,9 @@
 > 架构师产出（design）。依据：docs/DESIGN.md（研究员调研）+ DSH checkout 源码核实。
 > 目标：给出 plugin 的进程划分、持久化布局、提示词组装管线、API 契约总览与关键决策。
 > 与本文件配套的代码级契约：`src/shared/types.ts`（纯类型）、`src/shared/contracts.ts`（HTTP API + SSE 契约）、`src/shared/schema.ts`（host 侧 schemastery 校验）。
+>
+> ⚠️ **纠偏改造（2026-08-25）**：产品形态改为「主会话内激活助手对话」——独立聊天（/chat SSE + chats 存储 + ChatView）**整体退役**。
+> §4 提示词组装管线、§5 时间提醒、§7 的 chat/chats 行已被 **docs/ARCHITECTURE-ACTIVATION.md**（激活管线 + 时间感知 + selection 契约）取代；以该文件为准。
 
 ---
 
@@ -61,10 +64,10 @@ client tsconfig 同开；tsdown 直接消费 `.ts` 说明符）。跨目录示�
 ```
 dsh-assistant-panel/
   settings.json            # 插件级设置（userName / locale / timezone / dataDir）
+  selection.json           # ★ 会话级选择状态（sessionId → {assistantId, lastChatTs}；见 ARCHITECTURE-ACTIVATION.md §4）
   assistants/
     <assistantId>.json     # 一份 = 一个完整 AssistantConfig（原子写：tmp + rename）
-  chats/
-    <chatId>.jsonl         # 会话消息日志（逐行 JSON，ChatMessage 序列）
+  # chats/ 已退役：聊天历史由 DSH 会话（~/.dsh/sessions）承载
   global-memory.jsonl      # 全局记忆池（逐行 GlobalMemoryEntry）——仅 globalMemory=true 时读写
   memory/
     <assistantId>.jsonl    # 助手私有记忆池（逐行 AssistantMemoryEntry）——globalMemory=false 时读写
@@ -124,6 +127,8 @@ dsh-assistant-panel/
 
 ## 5. 时间提醒插入规则
 
+> ⚠️ **已废弃（纠偏改造）**：本节约 2026-08-25 起不再实现——时间提醒改为「时间感知开关」（自然上下文行注入，见 ARCHITECTURE-ACTIVATION.md §3），`gapReminderMinutes` 已从契约中移除，代码中不再生成 `[时间提醒]` 消息。以下原文仅作历史记录保留。
+
 - **开关**：`memory.enabled && memory.gapReminderMinutes !== null`（默认 30）。
 - **判定**：`now - lastUserMessageTs >= gapReminderMinutes * 60_000`。
   - `lastUserMessageTs` = 当前会话最后一条 user 消息的 ts（从 chats/<chatId>.jsonl 读取；无历史则用会话 createdAt）。
@@ -170,8 +175,9 @@ dsh-assistant-panel/
 | `GET /assistant-panel/api/health` | 健康检查（版本/dataDir/uptime） |
 | `GET/POST /assistant-panel/api/assistants` | 列表摘要 / 创建 |
 | `GET/PUT/DELETE /assistant-panel/api/assistants/:id` | 读取 / 部分更新 / 删除 |
-| `POST /assistant-panel/api/chat` | **SSE 聊天**（text/event-stream） |
-| `GET /assistant-panel/api/chats?assistantId=` / `:chatId/messages` / DELETE | 会话列表 / 历史 / 删除 |
+| ~~`POST /assistant-panel/api/chat`~~ | ~~SSE 聊天~~（已退役，见 ARCHITECTURE-ACTIVATION.md） |
+| ~~`GET /assistant-panel/api/chats…`~~ | ~~会话列表 / 历史 / 删除~~（已退役） |
+| `GET /assistant-panel/api/selection?sessionId=` / `POST /selection` | 会话级助手激活/取消（新；{sessionId, assistantId\|null}） |
 | `GET/POST/PUT/DELETE /assistant-panel/api/memory[… ]` | 记忆条目 CRUD（global / 私有池） |
 | `GET /assistant-panel/api/skills?cwd=` | skill 枚举（ctx.skills.list） |
 | `GET /assistant-panel/api/models` | 提供商/模型枚举（ctx.llm.listProviders/listModels/resolveModelInfo） |

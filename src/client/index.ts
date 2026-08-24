@@ -1,10 +1,11 @@
 /**
  * @dsh-external/dsh-assistant-panel — client 入口。
- * 注册三处 UI 面（DESIGN §C3 定案）：
- *   1. sidebar.footer.action — 侧边栏底栏助手图标；点击打开 shell.overlay 浮层；
- *   2. shell.overlay — 助手面板浮层（列表 + 聊天窗 + 设置）；
- *   3. settings.section — 完整设置页（全部设置表单 + 持久化）。
- * 自注入 <style>（类名前缀 dap-）。
+ * 注册三处 UI 面（纠偏形态，DESIGN-ACTIVATION §10.4 定案）：
+ *   1. sidebar.footer.action — 侧边栏底栏「助手」文字选项（宽模式图标+文字）；显示当前会话选中态；点击打开管理面板；
+ *   2. shell.overlay — 管理面板浮层（列表/选择/取消/编辑/复制/删除 + 当前会话选择状态条）；无独立聊天窗；
+ *   3. settings.section — 完整设置页（全部设置表单 + 持久化，含时间感知开关）。
+ * 自注入 <style>（类名前缀 dap-）。root 槽组件接收框架注入的 props
+ * （{wide, useSessions} / {useSessions} / {close, useSessions}），见 ./slots.ts。
  */
 import { STYLES } from './style.ts'
 import { SidebarEntry } from './SidebarEntry.tsx'
@@ -42,7 +43,7 @@ export const inject = ['slots']
 export function apply(ctx: ClientContext): void {
   ctx.effect(installStyles, '@dsh-external/dsh-assistant-panel: styles')
 
-  // 1. 侧边栏底栏入口（sidebar.footer.action，list/root，owner { wide }）
+  // 1. 侧边栏底栏入口（sidebar.footer.action，list/root，owner { wide }）——「助手」文字选项
   ctx.slots.inject('sidebar.footer.action', () =>
     ctx.slots.register({
       name: 'sidebar.footer.action',
@@ -52,7 +53,7 @@ export function apply(ctx: ClientContext): void {
     }, SidebarEntry),
   )
 
-  // 2. 助手面板浮层（shell.overlay，list/root；点击侧边栏图标经总线打开）
+  // 2. 管理面板浮层（shell.overlay，list/root；点击侧边栏入口经总线打开）
   ctx.slots.inject('shell.overlay', () =>
     ctx.slots.register({
       name: 'shell.overlay',

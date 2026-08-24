@@ -3,13 +3,15 @@
  *
  * 入口职责：
  *  - 声明插件 name / inject（webServer、llm、settings 等）；
- *  - 插件级配置 schema（dataDir / gapReminderMinutes 全局默认）；
+ *  - 插件级配置 schema（dataDir 等）；
  *  - 捕获主模型路由（llm/stream waterfall）→ lastRoute 兜底；
- *  - 组装 RuntimeContext（profile/lastRoute/defaultRoute）；
+ *  - 会话级选择（selection.json）：session/event 订阅维护 lastChatTs；
+ *  - **激活拦截**（llm/stream waterfall 短路）：选中助手 → 重建请求
+ *    （系统提示词/消息注入/模型参数/上下文截断/时间感知）；
  *  - ctx.effect 挂载：存储层 + webServer 前缀路由 /assistant-panel/api。
  *
  * 数据目录：插件设置 dataDir → ${DSH_HOME || ~/.dsh}/dsh-assistant-panel。
- * 参考：dsh-status-bar（webServer 注册 + json 范式）、旧骨架（llm/stream 捕获）。
+ * 参考：dsh-status-bar（webServer 注册 + session/event 先例）、DESIGN-ACTIVATION §2（瀑布短路）。
  */
 
 import type { Context } from 'cordis'
@@ -18,16 +20,20 @@ import type {} from '@deepseek-ai/dsh-settings'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-skill'
 import type {} from '@deepseek-ai/dsh-workspace'
+import type {} from '@deepseek-ai/dsh-session'
+import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type LlmRuntime from '@deepseek-ai/dsh-llm'
+import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
 import z from 'schemastery'
 import {
   AssistantStore,
-  ChatStore,
   MemoryStore,
   SettingsStore,
   resolveDataDir,
 } from './store.ts'
+import { SelectionStore } from './selection.ts'
 import { registerApiRoutes, type ApiDeps } from './api.ts'
+import { rebuildActivatedRequest, MEMORY_CANDIDATES } from './activate.ts'
 import type { RuntimeContext } from './prompt.ts'
 
 export const name = '@dsh-external/dsh-assistant-panel'
@@ -39,13 +45,10 @@ export const inject = ['webServer', 'llm', 'settings', 'skills', 'workspaceRegis
 export interface Config {
   /** 自定义数据目录；空 = ${DSH_HOME || ~/.dsh}/dsh-assistant-panel。 */
   dataDir: string
-  /** 全局时间提醒阈值（分钟）；助手级 memory.gapReminderMinutes 优先，此值作缺省。 */
-  gapReminderMinutes: number | null
 }
 
 export const Config: z<Config> = z.object({
   dataDir: z.string().default(''),
-  gapReminderMinutes: z.union([z.natural().min(1), z.const(null)]).default(30),
 })
 
 /** 插件版本（对齐 package.json）。 */
@@ -69,7 +72,7 @@ export function apply(ctx: Context, config: Config): void {
 
   // store 实例
   const assistants = new AssistantStore(effectiveDataDir)
-  const chats = new ChatStore(effectiveDataDir)
+  const selectionStore = new SelectionStore(effectiveDataDir)
   const memory = new MemoryStore(effectiveDataDir)
 
   // defaultRoute：agentDefaultModel 服务 → settings 兜底 → 空占位
@@ -83,19 +86,71 @@ export function apply(ctx: Context, config: Config): void {
     defaultRoute,
   }
 
-  // 捕获主模型路由（waterfall 必须 next() 委托）
+  // 重入防护：本插件短路再派发（ctx.llm.stream(rebuilt)）时直接放行，防无限递归
+  const reentrant = new Set<string>()
+
+  // 捕获主模型路由（waterfall 必须 next() 委托；重入请求不覆盖 lastRoute）
   ctx.on('llm/stream', (options, next) => {
-    const r: ModelRoute = { provider: options.provider, model: options.model }
-    runtime.lastRoute = r
+    const sessionKey = String(options.sessionId ?? '')
+    if (!reentrant.has(sessionKey)) {
+      const r: ModelRoute = { provider: options.provider, model: options.model }
+      runtime.lastRoute = r
+    }
     return next()
   })
+
+  // 会话事件 → lastChatTs 追踪（user/message；过滤 source.kind==='user' 排除注入上下文）
+  ctx.on('session/event', (session, event: SessionEvent) => {
+    if (event.type !== 'user/message') return
+    const data = event.data as { source?: { kind?: string } } | undefined
+    if (data?.source?.kind !== 'user') return
+    selectionStore.touch(String(session.id), event.time)
+  })
+
+  // ── 激活拦截（llm/stream waterfall 短路重建；DESIGN-ACTIVATION §2.3 形态）──
+  // 过滤：sessionId 精确匹配 + purpose===undefined（排除 compaction/session-title/subagent）
+  ctx.on('llm/stream', (options: GenerateOptions, next) => {
+    // a. 内部调用（compaction/session-title）→ 原生
+    if (options.purpose !== undefined) return next()
+    // b. 选择状态：无条目 / assistantId 为 null → 原生
+    const sessionKey = String(options.sessionId ?? '')
+    const sel = selectionStore.get(sessionKey)
+    if (!sel) return next()
+    // c. 助手存在性：被删 → 清理选择 → 原生
+    const assistant = assistants.get(sel.assistantId)
+    if (!assistant) {
+      selectionStore.clear(sessionKey)
+      return next()
+    }
+    // 重入防护：本插件再派发直接放行
+    if (reentrant.has(sessionKey)) return next()
+    // d-e-f. 重建请求（模型覆盖 + system 追加 + 消息注入/截断）
+    const memories = memory.recent(
+      assistant.memory.globalMemory,
+      assistant.memory.globalMemory ? undefined : assistant.id,
+      MEMORY_CANDIDATES,
+    )
+    const rebuilt = rebuildActivatedRequest({
+      options,
+      assistant,
+      runtime,
+      lastChatTs: sel.lastChatTs,
+      memories: memories,
+    })
+    reentrant.add(sessionKey)
+    try {
+      return ctx.llm.stream(rebuilt)
+    } finally {
+      reentrant.delete(sessionKey)
+    }
+  }, { global: true })
 
   // 注册 HTTP API（effect 绑定生命周期）
   const apiDeps: ApiDeps = {
     ctx,
     llm: ctx.llm,
     assistants,
-    chats,
+    selection: selectionStore,
     memory,
     settings: settingsStore,
     dataDir: effectiveDataDir,

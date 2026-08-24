@@ -20,6 +20,7 @@ import type {
   GlobalMemoryEntry,
   MemoryEntryId,
   ModelParams,
+  SessionSelection,
   WorkspaceId,
 } from './types.ts'
 
@@ -71,11 +72,9 @@ export type ApiRoute =
   | 'GET    /api/assistants/:id'
   | 'PUT    /api/assistants/:id'
   | 'DELETE /api/assistants/:id'
-  // 聊天
-  | 'POST   /api/chat'                       // SSE（text/event-stream）
-  | 'GET    /api/chats?assistantId='
-  | 'GET    /api/chats/:chatId/messages'
-  | 'DELETE /api/chats/:chatId'
+  // 会话级选择（主会话内助手激活；chat/chats 端点已整体退役，不再存在独立聊天 API）
+  | 'GET    /api/selection?sessionId='
+  | 'POST   /api/selection'                  // {sessionId, assistantId|null} → 激活/取消
   // 记忆
   | 'GET    /api/memory?assistantId=&global='
   | 'POST   /api/memory'
@@ -132,10 +131,17 @@ export type UpdateAssistantResp = ApiEnvelope<{ assistant: AssistantConfig }>
 export type DeleteAssistantResp = ApiEnvelope<{ id: AssistantId }>
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 聊天（SSE）
+// ⚠️ 聊天契约（退役段）——@deprecated
+//
+// 纠偏改造移除独立聊天：POST /api/chat、GET /api/chats 等端点已从路由表删除
+// （聊天由 DSH 主会话 llm/stream 承载；激活经 selection API + host waterfall，
+// 见 docs/ARCHITECTURE-ACTIVATION.md）。以下类型仅保留给旧客户端/历史参考，
+// **禁止新代码使用**；host/client 工程师完成对应删除后本段随之下架。
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** POST /api/chat 请求体。 */
+/**
+ * @deprecated 聊天端点已退役。禁止新代码使用。
+ */
 export interface ChatRequest {
   assistantId: AssistantId
   /** 本次用户输入。 */
@@ -147,9 +153,8 @@ export interface ChatRequest {
 }
 
 /**
- * SSE 事件 payload（`data: <json>\n\n` 帧，JSON.stringify 后随 `data: ` 前缀输出；
- * 空闲心跳为注释行 `: ping\n\n`，不产出事件）。
- * 建议每条事件再带 `event: <type>\n` 行供 EventSource 风格消费（本接口为 fetch 流，按 type 字段分派）。
+ * @deprecated 聊天 SSE 已退役（/chat 端点移除）。禁止新代码使用，随聊天端点删除后下架。
+ * 原语义（仅供历史参考）：`data: <json>\n\n` 帧 + `: ping\n\n` 空闲心跳 + `event: <type>` 行。
  */
 export type ChatEvent =
   /** 首帧：流建立、返回会话 id。 */
@@ -167,12 +172,14 @@ export type ChatEvent =
   /** 错误帧（收起连接，code 复用 ApiErrorCode）。 */
   | { type: 'error'; code: ApiErrorCode; message: string }
 
+/** @deprecated 同上（聊天 SSE 退役）。 */
 export const CHAT_EVENT_TYPES = [
   'connected', 'text-delta', 'reasoning-delta', 'tool-call-delta', 'memory-saved', 'done', 'error',
 ] as const
+/** @deprecated 同上（聊天 SSE 退役）。 */
 export type ChatEventName = (typeof CHAT_EVENT_TYPES)[number]
 
-/** GET /api/chats?assistantId=xxx → 会话列表。 */
+/** @deprecated 聊天端点已退役。禁止新代码使用；随聊天端点删除后下架。 */
 export interface ChatSummary {
   id: ChatId
   assistantId: AssistantId
@@ -182,13 +189,32 @@ export interface ChatSummary {
   /** 消息条数（便于列表展示）。 */
   messageCount: number
 }
+/** @deprecated 聊天端点已退役。 */
 export type ListChatsResp = ApiEnvelope<{ chats: ChatSummary[] }>
 
-/** GET /api/chats/:chatId/messages → 历史消息（升序）。 */
+/** @deprecated 聊天端点已退役。 */
 export type GetChatMessagesResp = ApiEnvelope<{ chat: ChatSession }>
 
-/** DELETE /api/chats/:chatId */
+/** @deprecated 聊天端点已退役。 */
 export type DeleteChatResp = ApiEnvelope<{ id: ChatId }>
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 会话级选择（selection API）——主会话内助手激活/取消
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** GET /api/selection?sessionId=xxx → 当前会话选择状态（激活的助手 + 最近对话时间）。 */
+export type GetSelectionResp = ApiEnvelope<{ selection: SessionSelection }>
+
+/** POST /api/selection 请求体：激活或取消会话级助手。 */
+export interface SetSelectionRequest {
+  /** DSH 主会话 id（字符串）。 */
+  sessionId: string
+  /** 目标助手 id；null = 取消激活（恢复原生对话；host 删除 selection.json 条目）。 */
+  assistantId: AssistantId | null
+}
+
+/** POST /api/selection 响应：落盘后的选择状态。 */
+export type SetSelectionResp = ApiEnvelope<{ selection: SessionSelection }>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 记忆
