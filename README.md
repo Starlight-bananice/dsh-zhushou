@@ -1,5 +1,8 @@
 # @dsh-external/dsh-assistant-panel
 
+> 项目仓库（dsh-zhushou）：https://github.com/Starlight-bananice/dsh-zhushou
+> 项目管理（issues）：https://github.com/Starlight-bananice/dsh-zhushou/issues
+
 DSH 侧边栏助手插件（功能对标 RikkaHub）：助手档案、模型参数、系统提示词+系统变量、快捷回复、注入模式、世界书、skill 开关、记忆与时间间隔提醒。
 
 ---
