@@ -56,7 +56,7 @@ export const STYLES = `
   backdrop-filter: blur(2px);
 }
 .dap-overlay-panel {
-  width: min(1080px, calc(100vw - 48px));
+  width: min(720px, calc(100vw - 48px));
   height: min(720px, calc(100vh - 48px));
   border-radius: 14px;
   overflow: hidden;
@@ -204,14 +204,14 @@ export const STYLES = `
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
   background: transparent;
   color: var(--dsw-alias-label-secondary, #5b6472);
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1;
   cursor: pointer;
 }
@@ -316,8 +316,8 @@ export const STYLES = `
   flex: none;
 }
 .dap-btn.tiny {
-  padding: 2px 8px;
-  font-size: 11px;
+  padding: 4px 12px;
+  font-size: 12px;
   border-radius: 6px;
 }
 .dap-panel-sub {
