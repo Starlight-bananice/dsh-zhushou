@@ -3,20 +3,31 @@
  * 配色沿用 DSH status-bar 的 CSS 变量（--dsw-alias-*），主题无关。
  */
 export const STYLES = `
-/* ── 侧边栏入口 ─────────────────────────────── */
+/* ── 侧边栏入口（几何对齐官方 settings 触发器：宽模式 42px 行 / 窄模式 36px 圆） ── */
 .dap-side-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
+  gap: 8px;
+  min-width: 36px;
+  width: auto;
+  height: 42px;
+  padding: 0 10px 0 8px;
+  box-sizing: border-box;
   border: none;
-  border-radius: 7px;
+  border-radius: 12px;
   background: transparent;
   color: var(--dsw-alias-label-secondary, #c8ccd4);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
+}
+.dap-side-action.rail {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  gap: 0;
+  padding: 0;
+  border-radius: 50%;
 }
 .dap-side-action:hover {
   background: color-mix(in srgb, var(--dsw-alias-label-secondary, #c8ccd4) 14%, transparent);
@@ -62,14 +73,14 @@ export const STYLES = `
   min-height: 0;
   background: var(--dsw-alias-bg-layer-1, #ffffff);
   color: var(--dsw-alias-label-primary, #1a1d24);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
 }
 .dap-panel-head {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 8px 14px;
   border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12));
   flex: none;
 }
@@ -82,6 +93,7 @@ export const STYLES = `
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--dsw-alias-label-secondary, #5b6472);
 }
 .dap-panel-body {
   display: flex;
@@ -165,14 +177,14 @@ export const STYLES = `
   flex: 1;
 }
 .dap-assist-name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .dap-assist-tags {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--dsw-alias-label-tertiary, #9aa0aa);
   white-space: nowrap;
   overflow: hidden;
@@ -271,7 +283,7 @@ export const STYLES = `
   background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4176e6) 7%, var(--dsw-alias-bg-layer-2, #f4f5f7));
 }
 .dap-sel-text {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--dsw-alias-label-secondary, #5b6472);
   min-width: 0;
   flex: 1;
@@ -281,7 +293,7 @@ export const STYLES = `
   font-weight: 600;
 }
 .dap-sel-hint {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--dsw-alias-label-tertiary, #9aa0aa);
   margin-left: 6px;
 }
@@ -318,6 +330,9 @@ export const STYLES = `
 }
 .dap-manage-body {
   min-height: 0;
+  /* 列表视图必须纵向堆叠（选择状态条在上、助手列表在下）；
+     display:flex 默认 row 会把两者并排成双栏 → 大量错位留白 */
+  flex-direction: column;
 }
 .dap-manage-body .dap-assist-list {
   width: 100%;
@@ -352,18 +367,25 @@ export const STYLES = `
   flex: none;
 }
 
-/* ── 侧边栏入口（文字选项） ─────────────────── */
+/* ── 侧边栏入口（文字选项：横排、14px、灰色，与官方设置触发器同字号） ── */
+.dap-side-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
 .dap-side-label {
-  font-size: 12px;
+  font-size: 14px;
+  line-height: 22px;
   color: inherit;
-  margin-left: 2px;
+  white-space: nowrap;
+  overflow: hidden;
 }
 .dap-side-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: var(--dsw-alias-brand-primary, #4176e6);
-  margin-left: 1px;
   flex: none;
 }
 
@@ -377,7 +399,7 @@ export const STYLES = `
   color: var(--dsw-alias-label-secondary, #5b6472);
   border-radius: 8px;
   padding: 6px 14px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1;
   cursor: pointer;
   white-space: nowrap;
@@ -408,7 +430,7 @@ export const STYLES = `
 }
 .dap-btn.small {
   padding: 4px 10px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 /* ── 设置页 ─────────────────────────────────── */
@@ -434,7 +456,7 @@ export const STYLES = `
   align-items: flex-start;
 }
 .dap-field-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--dsw-alias-label-secondary, #5b6472);
 }

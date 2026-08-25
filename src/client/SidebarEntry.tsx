@@ -40,21 +40,27 @@ export function SidebarEntry({ wide, useSessions }: SidebarEntryProps) {
   return (
     <button
       type="button"
-      className={'dap-side-action' + (selected ? ' dap-side-action-sel' : '')}
+      className={'dap-side-action' + (wide ? '' : ' rail') + (selected ? ' dap-side-action-sel' : '')}
       title={selected ? '助手（当前会话已选助手）' : '助手'}
       aria-label="助手"
       aria-expanded={open}
       onClick={() => togglePanel()}
     >
-      {/* 机器人/助手图标 */}
+      {/* 机器人/助手图标（宽模式 16 / 窄模式 18，与官方设置触发器一致） */}
       <svg width={wide ? 16 : 18} height={wide ? 16 : 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <rect x="4" y="8" width="16" height="12" rx="3" />
         <path d="M12 8V4" />
         <circle cx="12" cy="3" r="1.2" fill="currentColor" stroke="none" />
         <path d="M9 14h.01M15 14h.01M9.5 17.5h5" />
       </svg>
-      {wide && <span className="dap-side-label">助手</span>}
-      {selected && <span className="dap-side-dot" aria-hidden="true" />}
+      {wide ? (
+        <span className="dap-side-text">
+          <span className="dap-side-label">助手</span>
+          {selected && <span className="dap-side-dot" aria-hidden="true" />}
+        </span>
+      ) : (
+        selected && <span className="dap-side-dot" aria-hidden="true" />
+      )}
     </button>
   )
 }
